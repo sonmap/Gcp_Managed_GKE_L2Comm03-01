@@ -16,7 +16,6 @@ MEM_GB="4"
 SHELL_COMMAND=""
 NAMESPACE="${NAMESPACE:-l2comm-batch}"
 KSA_NAME="ksa-l2comm-batch"
-RUNTIME_GSA="sa-l2comm-runtime@gcp-prod-edp-edge-509423.iam.gserviceaccount.com"
 
 # By default the current VM is used as the PoC NFS server.
 NFS_SERVER="${NFS_SERVER:-$(hostname -I 2>/dev/null | awk '{print $1}')}"
@@ -136,10 +135,15 @@ spec:
       args:
         - |
           set -e
-          if [[ "${SA_KEY_CHECK:-1}" == "1" ]]; then
-            test -r "${SA_KEY_PATH:-/home/jupyter/.oefj}" || { echo "Missing or unreadable SA key"; exit 2; }
-          fi
+          test -r "\$SA_KEY_PATH" || { echo "Missing or unreadable SA key: \$SA_KEY_PATH"; exit 2; }
           ${SHELL_COMMAND}
+      env:
+        - name: SA_KEY_PATH
+          value: "${SA_KEY_PATH}"
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "${SA_KEY_PATH}"
+        - name: BQ_JOB_PROJECT
+          value: "${BQ_JOB_PROJECT}"
       resources:
         requests:
           cpu: "${CPU}"
@@ -210,10 +214,7 @@ kubectl get namespace "$NAMESPACE" >/dev/null 2>&1 || kubectl create namespace "
 
 kubectl -n "$NAMESPACE" get serviceaccount "$KSA_NAME" >/dev/null 2>&1 ||   kubectl -n "$NAMESPACE" create serviceaccount "$KSA_NAME"
 
-if [[ "${USE_WORKLOAD_IDENTITY:-0}" == "1" ]]; then
-  kubectl -n "$NAMESPACE" annotate serviceaccount "$KSA_NAME" \
-    iam.gke.io/gcp-service-account="$RUNTIME_GSA" --overwrite
-fi
+# Application authentication uses the mounted .oefj key explicitly.
 
 kubectl apply -f "$PV_YAML"
 kubectl apply -f "$PVC_YAML"

@@ -53,3 +53,7 @@ Workflows와 Cloud Scheduler는 이 실행 경로에서 사용하지 않습니�
 
 설계는 [DESIGN](docs/DESIGN.md), 파일 역할은 [STRUCTURE](docs/STRUCTURE.md),
 전환 시 주의사항은 [MIGRATION](docs/MIGRATION.md)을 참고하십시오.
+
+BigQuery는 모든 Python 샘플에서 `.oefj` 키를 명시적으로 읽어 인증합니다.
+`client_gke`는 KSA→GSA 어노테이션을 설정하지 않습니다.
+Pod의 Kubernetes 실행에는 KSA가 계속 필요하지만 BigQuery 인증 계정은 키 파일의 서비스 계정입니다.

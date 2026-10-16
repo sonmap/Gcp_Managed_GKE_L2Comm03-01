@@ -856,6 +856,12 @@ kubectl -n l2comm-batch annotate serviceaccount ksa-l2comm-batch \
 
 ### 10-6. RSVP 인증 파일 확인
 
+Pod에는 `SA_KEY_PATH=/home/jupyter/.oefj`,
+`GOOGLE_APPLICATION_CREDENTIALS=/home/jupyter/.oefj`, `BQ_JOB_PROJECT=pjt-c-admin`을 전달합니다.
+현재 Python BigQuery 코드는 `credentials=`를 명시하며 KSA/GSA 또는 ADC로 대체 인증하지 않습니다.
+키 파일이 없거나 유효하지 않으면 실패합니다. `SA_KEY_CHECK=0`으로 검사를 생략하지 않습니다.
+
+
 현재 RSVP 샘플은 Workload Identity 대신 NFS로 전달되는 서비스 계정 키를 명시적으로 읽습니다.
 KSA 어노테이션만으로 `bq_auth_smoke.py`의 키 파일 요구사항이 대체되지 않습니다.
 
@@ -957,7 +963,7 @@ readlink -f /ssw/dlk
 ```
 
 `L2COMM: SUCCESS`는 인증 검사 성공입니다. 이전 03의 `/app/main.py` 적재 검사와는 다릅니다.
-`app/main.py`는 ADC를 사용하는 별도 샘플이며 RSVP 키 인증 샘플과 혼동하지 마십시오.
+`app/main.py` 역시 `.oefj` 키를 명시적으로 사용합니다. 이미지에 포함되므로 변경 적용 시 이미지 재빌드가 필요합니다. Compute 리전 조회 권한과 BigQuery 적재 권한이 추가로 필요합니다.
 리전 수를 고정된 43건으로 검증하지 않습니다.
 
 정기 실행은 수동 테스트 성공 후 동일 RSVP 래퍼와 이미지 변수를 사용해 VM crontab에 등록합니다.

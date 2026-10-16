@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from google.cloud import bigquery
 from google.cloud import compute_v1
+from google.oauth2 import service_account
 
 EXECUTION_PROJECT = os.getenv("EXECUTION_PROJECT", "gcp-prod-edp-edge-509423")
 TARGET_PROJECT = os.getenv("TARGET_PROJECT", "pjt-c-admin")
@@ -10,8 +11,19 @@ TARGET_DATASET = os.getenv("TARGET_DATASET", "dlk_sample")
 TARGET_TABLE = os.getenv("TARGET_TABLE", "gcp_region_inventory")
 
 
-def fetch_gcp_regions() -> list[dict]:
-    client = compute_v1.RegionsClient()
+SA_KEY_PATH = os.getenv("SA_KEY_PATH", "/home/jupyter/.oefj")
+
+
+def load_key_credentials():
+    if not os.path.isfile(SA_KEY_PATH):
+        raise FileNotFoundError(f"Service Account key missing: {SA_KEY_PATH}")
+    return service_account.Credentials.from_service_account_file(
+        SA_KEY_PATH, scopes=["https://www.googleapis.com/auth/cloud-platform"]
+    )
+
+
+def fetch_gcp_regions(credentials) -> list[dict]:
+    client = compute_v1.RegionsClient(credentials=credentials)
     loaded_at = datetime.now(timezone.utc).isoformat()
     rows = []
 
@@ -30,8 +42,8 @@ def fetch_gcp_regions() -> list[dict]:
     return rows
 
 
-def write_to_bigquery(rows: list[dict]) -> None:
-    client = bigquery.Client(project=EXECUTION_PROJECT)
+def write_to_bigquery(rows: list[dict], credentials) -> None:
+    client = bigquery.Client(project=EXECUTION_PROJECT, credentials=credentials)
     destination = f"{TARGET_PROJECT}.{TARGET_DATASET}.{TARGET_TABLE}"
 
     schema = [
@@ -56,10 +68,11 @@ def write_to_bigquery(rows: list[dict]) -> None:
 
 
 def main() -> None:
-    rows = fetch_gcp_regions()
+    credentials = load_key_credentials()
+    rows = fetch_gcp_regions(credentials)
     if not rows:
         raise RuntimeError("No GCP region data returned")
-    write_to_bigquery(rows)
+    write_to_bigquery(rows, credentials)
 
 
 if __name__ == "__main__":

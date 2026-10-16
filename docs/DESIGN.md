@@ -28,8 +28,7 @@ Cloud Build의 `Gcp_Managed_GKE_L2Comm03-01` 연결과
 Pod는 NFS의 `/batch_gke/l2/rsvp`를 `/home/jupyter`에 읽기 전용 마운트합니다.
 인증 샘플은 `/home/jupyter/.oefj`를 명시적으로 읽습니다.
 플랫폼의 `sa-l2comm-gke` 및 KSA Workload Identity 구성과 키 인증 검사는 구분합니다.
-`USE_WORKLOAD_IDENTITY=1`은 client_gke에 남아 있는 02 런타임 SA를 참조하므로
-현재 RSVP 테스트에서는 기본값 0을 유지합니다.
+`client_gke`는 KSA→GSA 어노테이션을 설정하지 않습니다. BigQuery Python 클라이언트는 `.oefj`에서 만든 credentials를 명시적으로 사용합니다.
 
 DRY_RUN 기본값은 1입니다. 0일 때 PV/PVC와 Pod를 적용합니다.
 클라이언트는 최대 3600초 동안 Succeeded를 기다리고 로그를 출력합니다.
@@ -42,7 +41,7 @@ Owner `admin@sonmap.net`은 IAM·네트워크·방화벽을 관리합니다.
 VM의 kubectl 인증 주체가 GKE API에 Pod와 PV/PVC를 생성할 권한이 있어야 합니다.
 키 파일의 서비스 계정은 BigQuery 쿼리 실행 프로젝트에 Job User 권한이 필요합니다.
 `bq_auth_smoke.py`는 테이블 없이 상수 SELECT만 실행합니다.
-`app/main.py`는 ADC로 Compute 리전을 조회해 테이블을 덮어쓰는 별도 샘플입니다.
+`app/main.py`는 동일한 `.oefj` 키로 Compute 리전을 조회해 테이블을 덮어쓰는 별도 샘플입니다.
 
 키 파일은 Git 관리 대상에서 제외하며 기존 VM 파일을 별도로 준비합니다.
 Private endpoint, NFS TCP 2049, 이미지 Pull 접근은 RUNBOOK에서 순서대로 확인합니다.
