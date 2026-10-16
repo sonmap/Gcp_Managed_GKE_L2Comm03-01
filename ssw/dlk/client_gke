@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# L2Comm02 - GKE Autopilot common client
+# L2Comm03-01 - GKE Autopilot common client
 # - Uses the private GKE kubeconfig on infra-son01
 # - Creates/reuses a static NFS PV/PVC
 # - Creates a batch Pod and mounts the Git-managed NFS share read-only
@@ -177,7 +177,7 @@ PY
 fi
 
 echo "============================================================"
-echo "L2Comm02 GKE batch"
+echo "L2Comm03-01 GKE batch"
 echo "============================================================"
 echo "KUBECONFIG    : $KUBECONFIG"
 echo "NAMESPACE     : $NAMESPACE"

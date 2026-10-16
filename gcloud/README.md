@@ -5,7 +5,7 @@
 `20-source-connection`은 L2Comm02에서도 gcloud 기반이었고, 멱등성만 보완했습니다.
 
 **L2Comm02와 달리 Workflows / Cloud Scheduler를 사용하지 않습니다.**
-배치 실행은 `ssw/dlk/run-gke.sh` -> `client_gke`가 GKE API로 Job을 직접 생성하는
+배치 실행은 `ssw/dlk/run-gke.sh` -> `client_gke`가 GKE API로 Pod를 직접 생성하는
 경로로 바뀌었고, 그에 따라 `40-scheduler.sh`와 `workflow.yaml.tmpl`은 삭제되었습니다.
 
 ---
@@ -64,7 +64,7 @@ gcloud config set account cho@sonmap.net
 ## 2-1. 서비스 계정 구성 (L2Comm02 대비 단순화)
 
 ```text
-L2Comm02                          L2Comm03
+L2Comm02                          L2Comm03-01
 ─────────────────────────         ─────────────────────────
 sa-l2comm-tf-admin        ──┐
                             └──>  cho@sonmap.net (직접 실행)
@@ -84,7 +84,7 @@ sa-l2comm-runtime         ──┘
 `logging.logWriter`, `storage.objectViewer`, `bigquery.jobUser`, `compute.viewer`,
 Dataset `bigquery.dataEditor`.
 
-Workflows 를 쓰지 않으므로 `workflows.invoker` 는 제거했고, Job 생성 권한
+Workflows 를 쓰지 않으므로 `workflows.invoker` 는 제거했고, Pod 생성 권한
 (`container.developer`)은 SA 가 아니라 **run-gke.sh 를 실행하는 주체**
 (`cho@sonmap.net` 및 VM 기본 SA)에 부여합니다.
 
@@ -131,7 +131,7 @@ Workflows 를 쓰지 않으므로 `workflows.invoker` 는 제거했고, Job 생�
 | `google_cloudbuild_trigger` (2nd-gen) | `gcloud builds triggers create github --repository=projects/../connections/../repositories/.. --branch-pattern` |
 | `google_container_cluster` (Autopilot) | `gcloud container clusters create-auto` (§4 참고) |
 | `google_service_account_iam_member` (WI) | `add-iam-policy-binding --member="serviceAccount:PROJECT.svc.id.goog[ns/ksa]"` |
-| `google_workflows_workflow` + `templatefile()` | **제거.** Workflows 미사용 — `ssw/dlk/client_gke` 가 `kubectl apply` 로 Job 생성 |
+| `google_workflows_workflow` + `templatefile()` | **제거.** Workflows 미사용 — `ssw/dlk/client_gke` 가 `kubectl apply` 로 Pod 생성 |
 
 ---
 
@@ -175,45 +175,20 @@ services enable → SA 생성 → IAM 부여 → Shared VPC 연결
 특히 **Subnet IAM(`compute.networkUser`)이 Cluster 생성보다 먼저**여야 하고,
 `container.hostServiceAgentUser`가 없으면 Autopilot 생성이 실패합니다.
 
-### 5-4. Job 생성 경로 (Workflows 대체)
-`workflow.yaml.tftpl` / `workflow.yaml.tmpl` 은 삭제했습니다. Job 매니페스트는
-`ssw/dlk/client_gke` 가 런타임에 생성해 `kubectl apply` 합니다.
+### 5-4. RSVP Pod 실행
 
-```
-run-gke.sh (10개 파라미터)
-  -> client_gke  : PV/PVC/Job YAML 생성 -> kubectl apply
-  -> GKE Job     : batch/v1, backoffLimit 1, ttlSecondsAfterFinished 600
-  -> kubectl wait --for=condition=complete
-  -> 로그 출력 후 Job 정리
-```
-
-Private endpoint 클러스터이므로 **VPC 내부 VM 에서만 실행 가능**합니다.
-`DRY_RUN=1`(기본값)이면 매니페스트만 출력하고 apply 하지 않습니다.
-
-### 5-5. 권한 경계
-`10-network.sh`는 Host 프로젝트를 변경하므로 실행 주체에 `compute.networkAdmin`,
-Shared VPC 연결에는 조직 수준 `compute.xpnAdmin`이 필요합니다.
-Edge 프로젝트 권한만으로는 실패합니다.
-
-### 5-6. 상태 관리 상실
-`plan` / `destroy` / drift 감지가 없습니다. 대체 수단:
-
-```bash
-./gcloud/99-verify.sh    # 생성 자원 상태 일괄 확인
-./gcloud/90-teardown.sh  # 생성 역순 삭제 (각 단계 확인)
-```
-
-콘솔에서 수동 변경된 값은 자동 감지되지 않으므로, 변경 시 `00-env.sh` 와
-실제 자원을 주기적으로 대조하십시오.
-
----
+VM RSVP 래퍼 → `ssw/dlk/run-gke.sh` → `client_gke` → PV/PVC·Pod 적용 →
+Succeeded 대기 → 로그 → 성공 Pod 삭제입니다.
+NFS `/batch_gke/l2/rsvp`는 `/home/jupyter`로 마운트되며 `.oefj` 키 인증 샘플을 실행합니다.
+실제 명령은 `docs/RUNBOOK.md` §10~11을 따릅니다.
+Job의 backoffLimit·TTL·KEEP_JOB 및 Cloud Logging 자동 폴백은 지원하지 않습니다.
 
 ## 6. L2Comm02 대비 제거된 자원
 
 gcloud 전환으로 아래가 불필요해졌습니다.
 
 - `sa-l2comm-tf-admin` 서비스 계정 (배포 주체가 `cho@sonmap.net` 직접 실행으로 변경)
-- `sa-l2comm-cloudbuild` / `sa-l2comm-workflow` / `sa-l2comm-runtime` (→ `sa-l2comm-gke` 통합)
+- 플랫폼은 `sa-l2comm-gke`를 사용합니다. RSVP 샘플의 `.oefj` 키 인증은 별도입니다. 기존 SA는 검증 없이 삭제하지 않습니다.
 - `sa-l2comm-inframgr` 서비스 계정
 - `roles/config.agent`, `roles/config.admin`
 - `config.googleapis.com` API

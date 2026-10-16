@@ -1,4 +1,4 @@
-# L2Comm03 RUNBOOK (Ubuntu VM 작업 기준)
+# L2Comm03-01 RUNBOOK (Ubuntu VM 작업 기준)
 
 VPC 내부 Ubuntu VM 한 대에서 `git clone` 부터 배치 실행·결과 확인까지
 전부 수행하는 절차입니다. 위에서부터 순서대로 복사해 실행하십시오.
@@ -128,9 +128,10 @@ gcloud auth list
 
 ```bash
 cd ~
-git clone https://github.com/sonmap/Gcp_Managed_GKE_L2Comm03.git
-cd ~/Gcp_Managed_GKE_L2Comm03
-chmod +x gcloud/*.sh ssw/dlk/run-gke.sh ssw/dlk/client_gke ssw/dlk/install-vm.sh
+git clone https://github.com/sonmap/Gcp_Managed_GKE_L2Comm03-01.git
+cd ~/Gcp_Managed_GKE_L2Comm03-01
+chmod +x gcloud/*.sh ssw/dlk/*.sh ssw/dlk/client_gke
+chmod +x mnt/batch_gke/l2_gke_sh/rsvp/GP_L2RSVP_001_1/run-gke.sh
 ```
 
 ### 확인
@@ -314,7 +315,7 @@ gcloud compute shared-vpc associated-projects list gcp-prod-edp-hub-vpchost \
 ### 5-4. 10-network 실행 (Owner)
 
 ```bash
-cd ~/Gcp_Managed_GKE_L2Comm03
+cd ~/Gcp_Managed_GKE_L2Comm03-01
 ./gcloud/10-network.sh
 ```
 
@@ -382,7 +383,7 @@ gcloud config get-value account
 작업 도중 `PERMISSION_DENIED` 로 멈춥니다.
 
 ```bash
-cd ~/Gcp_Managed_GKE_L2Comm03
+cd ~/Gcp_Managed_GKE_L2Comm03-01
 ./gcloud/05-check-permissions.sh
 ```
 
@@ -405,7 +406,7 @@ gcloud config set account cho@sonmap.net
 
 기존 `github-l2comm` Connection 에는 `Gcp_Managed_GKE_L2Comm` 과
 `Gcp_Managed_GKE_L2Comm02` 만 연결되어 있습니다. **Connection 은 재사용**하고
-그 아래에 `Gcp_Managed_GKE_L2Comm03` 저장소만 **추가**합니다.
+그 아래에 `Gcp_Managed_GKE_L2Comm03-01` 저장소만 **추가**합니다.
 Connection 을 새로 만들 필요는 없습니다.
 
 ### 7-1. Connection 확인
@@ -427,12 +428,12 @@ gcloud builds repositories list \
   --format="table(name.basename(), remoteUri)"
 ```
 
-이 시점에는 `L2Comm`, `L2Comm02` 두 개만 보입니다.
+현재 연결 목록을 확인합니다. 이전 03 연결이 이미 있을 수도 있습니다.
 
 ### 7-2. GitHub App 접근 권한 확인 (선행 조건)
 
 Cloud Build GitHub App 이 **Only select repositories** 로 설치되어 있으면,
-GitHub 쪽에서 `Gcp_Managed_GKE_L2Comm03` 을 먼저 허용해야 7-3 이 성공합니다.
+GitHub 쪽에서 `Gcp_Managed_GKE_L2Comm03-01` 을 먼저 허용해야 7-3 이 성공합니다.
 
 브라우저에서 확인합니다.
 
@@ -443,7 +444,7 @@ https://github.com/organizations/sonmap/settings/installations
 ```
 
 `Google Cloud Build` → **Configure** → Repository access 에서
-`Gcp_Managed_GKE_L2Comm03` 이 포함되어 있는지 확인하고, 없으면 추가합니다.
+`Gcp_Managed_GKE_L2Comm03-01` 이 포함되어 있는지 확인하고, 없으면 추가합니다.
 (`All repositories` 로 설정되어 있으면 이 단계는 불필요합니다.)
 
 > 이 단계를 건너뛰면 7-3 에서 저장소를 찾지 못하거나
@@ -467,12 +468,12 @@ gcloud builds repositories list \
   --format="table(name.basename(), remoteUri)"
 ```
 
-기대: 기존 2개에 더해 `Gcp_Managed_GKE_L2Comm03` 이 추가되어 **3개**가 보임.
+기대: 현재 목록에 더해 `Gcp_Managed_GKE_L2Comm03-01` 이 추가되어 보임. 기존 연결 개수는 환경마다 다릅니다.
 
 ```text
 Gcp_Managed_GKE_L2Comm     https://github.com/sonmap/Gcp_Managed_GKE_L2Comm.git
 Gcp_Managed_GKE_L2Comm02   https://github.com/sonmap/Gcp_Managed_GKE_L2Comm02.git
-Gcp_Managed_GKE_L2Comm03   https://github.com/sonmap/Gcp_Managed_GKE_L2Comm03.git
+Gcp_Managed_GKE_L2Comm03-01   https://github.com/sonmap/Gcp_Managed_GKE_L2Comm03-01.git
 ```
 
 ---
@@ -535,7 +536,7 @@ gcloud projects get-iam-policy gcp-prod-edp-edge-509423 \
 > `workflows.invoker`, `container.developer`, `artifactregistry.writer` 가
 > 여기에 **없어야** 정상입니다. AR 권한은 8-1 의 저장소 레벨에 있습니다.
 
-### 8-3. Job 생성 주체 권한
+### 8-3. Pod 생성 주체 권한
 
 ```bash
 gcloud projects get-iam-policy gcp-prod-edp-edge-509423 \
@@ -603,7 +604,7 @@ workloadPool: gcp-prod-edp-edge-509423.svc.id.goog
 ### 8-7. Cloud Build Trigger
 
 ```bash
-gcloud builds triggers describe trg-l2comm03-python-image \
+gcloud builds triggers describe trg-l2comm03-01-python-image \
   --project=gcp-prod-edp-edge-509423 --region=asia-northeast3 \
   --format="yaml(name, filename, serviceAccount, includedFiles,
                  repositoryEventConfig.push.branch)"
@@ -614,13 +615,13 @@ gcloud builds triggers describe trg-l2comm03-python-image \
 ```text
 includedFiles: app/**, cloudbuild/**, gcloud/**
 serviceAccount: ...sa-l2comm-gke@...
-repository: .../repositories/Gcp_Managed_GKE_L2Comm03
+repository: .../repositories/Gcp_Managed_GKE_L2Comm03-01
 ```
 
 > **저장소 경로를 반드시 확인하십시오.** L2Comm02 의 트리거
 > `trg-l2comm-python-image` 를 재사용하면 L2Comm02 소스로 빌드되어
 > 빌드 로그에 `REPO_FULL_NAME: sonmap/Gcp_Managed_GKE_L2Comm02` 가 찍힙니다.
-> L2Comm03 은 `trg-l2comm03-python-image` 를 따로 사용하며, 스크립트가
+> L2Comm03-01 은 `trg-l2comm03-01-python-image` 를 따로 사용하며, 스크립트가
 > 기존 트리거의 저장소 불일치를 감지하면 중단합니다.
 
 ---
@@ -630,7 +631,7 @@ repository: .../repositories/Gcp_Managed_GKE_L2Comm03
 ### 9-1. 수동 빌드 실행
 
 ```bash
-gcloud builds triggers run trg-l2comm03-python-image \
+gcloud builds triggers run trg-l2comm03-01-python-image \
   --project=gcp-prod-edp-edge-509423 --region=asia-northeast3 \
   --branch=main
 ```
@@ -672,7 +673,7 @@ gcloud artifacts docker images list \
 ### 10-1. /ssw/dlk 심볼릭 링크
 
 ```bash
-cd ~/Gcp_Managed_GKE_L2Comm03
+cd ~/Gcp_Managed_GKE_L2Comm03-01
 bash ssw/dlk/install-vm.sh
 ```
 
@@ -690,16 +691,17 @@ ls -ld /ssw/dlk
 readlink -f /ssw/dlk
 ```
 
-다른 체크아웃을 가리키는 **심볼릭 링크**이면 03 으로 다시 겁니다.
+다른 체크아웃을 가리키는 **심볼릭 링크**이면 실행 중인 배치가 없는지 확인한 후 03-01로 다시 연결합니다. 실제 디렉터리는 이 명령으로 교체하지 않습니다.
 
 ```bash
-REPOINT=true bash ssw/dlk/install-vm.sh
+test -L /ssw/dlk && sudo ln -sfn "$HOME/Gcp_Managed_GKE_L2Comm03-01/ssw/dlk" /ssw/dlk
+bash ssw/dlk/install-vm.sh
 ```
 
 심볼릭 링크가 아니라 **실제 디렉터리**이면 백업 후 재실행합니다.
 
 ```bash
-sudo mv /ssw/dlk /ssw/dlk.bak
+sudo mv /ssw/dlk "/ssw/dlk.bak.$(date +%Y%m%d%H%M%S)"
 bash ssw/dlk/install-vm.sh
 ```
 
@@ -710,7 +712,7 @@ ls -l /ssw/dlk
 readlink -f /ssw/dlk
 ```
 
-기대: `~/Gcp_Managed_GKE_L2Comm03/ssw/dlk` 를 가리키는 심볼릭 링크.
+기대: `~/Gcp_Managed_GKE_L2Comm03-01/ssw/dlk` 를 가리키는 심볼릭 링크.
 
 ### 10-2. NFS 서버 구성
 
@@ -724,11 +726,11 @@ sudo bash /ssw/dlk/setup-nfs-server.sh
 findmnt /srv/l2comm-nfs
 exportfs -v
 ss -lntp | grep 2049
-ls /srv/l2comm-nfs/python
+ls /srv/l2comm-nfs/batch_gke/l2/rsvp/GP_L2RSVP_001_1/python
 ```
 
 기대: bind mount 존재, export 목록 출력, 2049 LISTEN,
-`bq_sample.py` 와 `requirements.txt` 가 보임.
+`bq_auth_smoke.py`가 보임. SOURCE는 `Gcp_Managed_GKE_L2Comm03-01/mnt`여야 합니다.
 
 VM 내부 IP 를 기록해 둡니다.
 
@@ -746,7 +748,7 @@ Host 프로젝트에 두 종류의 규칙이 필요합니다.
 | `fw-l2comm-master-to-node` | Control Plane(`10.254.5.0/28`) → Node (tcp:10250 등) | `kubectl logs` / `exec` 가 `No agent available` |
 
 두 번째 규칙은 Shared VPC 환경에서 GKE 가 Host 프로젝트에 자동 생성하지
-못하는 경우가 있어 명시적으로 만듭니다. Job 실행 자체에는 영향이 없지만
+못하는 경우가 있어 명시적으로 만듭니다. Pod 실행과 별도로 확인해야 하며
 로그와 exec 가 막힙니다.
 
 > **선행 조건**: 노드 네트워크 태그를 조회해야 하므로 클러스터에 노드가
@@ -754,7 +756,7 @@ Host 프로젝트에 두 종류의 규칙이 필요합니다.
 > 아직이면 §11 을 먼저 수행하고 여기로 돌아오셔도 됩니다.
 
 ```bash
-cd ~/Gcp_Managed_GKE_L2Comm03
+cd ~/Gcp_Managed_GKE_L2Comm03-01
 
 gcloud config set account admin@sonmap.net
 ./gcloud/11-firewall.sh
@@ -852,264 +854,113 @@ kubectl -n l2comm-batch annotate serviceaccount ksa-l2comm-batch \
   --overwrite
 ```
 
-### 10-6. Workload Identity 실제 동작 확인
+### 10-6. RSVP 인증 파일 확인
+
+현재 RSVP 샘플은 Workload Identity 대신 NFS로 전달되는 서비스 계정 키를 명시적으로 읽습니다.
+KSA 어노테이션만으로 `bq_auth_smoke.py`의 키 파일 요구사항이 대체되지 않습니다.
+
+| VM 파일 | Pod 경로 |
+|---|---|
+| `mnt/batch_gke/l2/rsvp/.oefj` | `/home/jupyter/.oefj` |
+| `mnt/batch_gke/l2/rsvp/GP_L2RSVP_001_1/python/bq_auth_smoke.py` | `/home/jupyter/GP_L2RSVP_001_1/python/bq_auth_smoke.py` |
+
+기존 02에서 사용하던 키가 필요한 경우, Git에 올리지 않고 VM 안에서만 복사합니다.
+키 내용을 출력하지 마십시오.
 
 ```bash
-kubectl -n l2comm-batch run wi-test --rm -it --restart=Never \
-  --image=google/cloud-sdk:slim \
-  --overrides='{"spec":{"serviceAccountName":"ksa-l2comm-batch"}}' \
-  -- gcloud auth list
+cd ~/Gcp_Managed_GKE_L2Comm03-01
+if [ ! -f mnt/batch_gke/l2/rsvp/.oefj ]; then
+  cp ~/Gcp_Managed_GKE_L2Comm02/mnt/batch_gke/l2/rsvp/.oefj \
+     mnt/batch_gke/l2/rsvp/.oefj
+fi
+test -r mnt/batch_gke/l2/rsvp/.oefj && echo '키 파일 존재'
 ```
 
-기대: `sa-l2comm-gke@gcp-prod-edp-edge-509423.iam.gserviceaccount.com` 이 활성 계정.
-
-> Autopilot 이 Node 를 띄우므로 1~3분 걸릴 수 있습니다.
+기존 키가 없으면 여기서 중단하고 기존 운영 인증 파일 위치부터 확인합니다.
+파일과 상위 디렉터리는 Pod 실행 UID에서 읽고 접근할 수 있어야 합니다.
 
 ---
 
-## 11. 배치 실행
+## 11. RSVP 배치 실행
 
-### 11-0. 두 가지 실행 대상 (중요)
-
-`run-gke.sh` 의 8~10번 파라미터(`WORKING_DIRECTORY` / `PROGRAM_PATH` /
-`PROGRAM_PARAM`)가 **Pod 안에서 무엇을 실행할지**를 결정합니다.
-두 가지 대상이 있으며 용도가 다릅니다.
-
-| 대상 | 경로 | 소스 위치 | 동작 |
-|---|---|---|---|
-| **적재 배치** | `/app` + `main.py` | 컨테이너 이미지 내부 | GCP 리전 43건을 BigQuery 에 **적재** |
-| NFS 조회 샘플 | `/mnt/l2comm/python` + `bq_sample.py` | VM NFS (Git `mnt/`) | 적재된 테이블을 10건 **조회**만 함 |
-
-- **PoC 검증 기준(`row_count = 43`)을 만드는 것은 적재 배치입니다.**
-- NFS 샘플은 "Git 으로 관리하는 스크립트를 NFS 로 Pod 에 전달한다"는
-  경로를 검증하기 위한 것이며, 테이블에 행을 추가하지 않습니다.
-- 이미지의 `WORKDIR` 는 `/app`, 엔트리포인트 스크립트는 `main.py` 입니다
-  (`app/Dockerfile` 참고).
-
-### 11-1. DRY_RUN — 매니페스트만 확인
+### 11-1. DRY_RUN — 매니페스트 확인
 
 ```bash
-cd ~/Gcp_Managed_GKE_L2Comm03
-
+cd ~/Gcp_Managed_GKE_L2Comm03-01
+export KUBECONFIG="$HOME/.kube/config_new-autopilot"
+DRY_RUN=1 \
 DOCKER_IMAGE=asia-northeast3-docker.pkg.dev/gcp-prod-edp-hub-vpchost/ar-l2comm-python/python-bq-batch:v1 \
-./ssw/dlk/run-gke.sh \
+./mnt/batch_gke/l2_gke_sh/rsvp/GP_L2RSVP_001_1/run-gke.sh \
   20261016 20261016 20261016 180000 \
   0 4 16 \
-  /mnt/l2comm/python \
-  python bq_sample.py
+  /mnt/batch_gke/l2/rsvp/GP_L2RSVP_001_1/python \
+  python bq_auth_smoke.py
 ```
 
-기대: 파라미터 10개가 출력되고 `pv.yaml` / `pvc.yaml` / `job.yaml` 이 표시됨.
+기대 결과:
 
-`job.yaml` 에서 확인할 것:
+| 항목 | 값 |
+|---|---|
+| 생성 파일 | `pv.yaml`, `pvc.yaml`, `pod.yaml` |
+| Kubernetes 리소스 | `apiVersion: v1`, `kind: Pod` |
+| NFS 경로 | `/batch_gke/l2/rsvp` |
+| 마운트 | `/home/jupyter` (읽기 전용) |
+| PV / PVC | `l2comm-rsvp-pv` / `l2comm-rsvp-pvc` |
+| 작업 경로 | `/home/jupyter/GP_L2RSVP_001_1/python` |
+| 리소스 | CPU 4, 메모리 16Gi |
 
-```text
-kind: Job
-apiVersion: batch/v1
-backoffLimit: 1
-ttlSecondsAfterFinished: 600
-serviceAccountName: ksa-l2comm-batch
-image: ...gcp-prod-edp-hub-vpchost/ar-l2comm-python/python-bq-batch:v1
-cpu "4" / memory "16Gi"
-mountPath: /mnt/l2comm
-```
+래퍼가 VM 경로를 Pod 경로로 변환합니다. 첫 9개 인자는 필수이며 10번째 이후는 프로그램 인자입니다.
+`DRY_RUN` 기본값은 1입니다. 실제 실행에는 반드시 0을 지정합니다.
 
-파라미터 계약 검증 (9개만 주면 usage 출력 후 종료):
+### 11-2. 실제 실행
 
-```bash
-./ssw/dlk/run-gke.sh 20261016 20261016 20261016 180000 0 4 16 /mnt/l2comm/python python
-```
+11-1과 같은 명령에서 `DRY_RUN=1`만 `DRY_RUN=0`으로 바꿉니다.
+이미지는 Host 프로젝트의 기존 이미지를 명시적으로 사용합니다.
+`run-gke.sh` 자체의 기본 이미지는 Edge 프로젝트이므로 이미지 변수를 생략하지 마십시오.
 
-기대: Usage 출력, exit 1.
-
-### 11-2. 적재 배치 실행 (PoC 검증 기준)
-
-이미지 내부의 `main.py` 를 실행해 BigQuery 에 43건을 적재합니다.
-
-```bash
-DRY_RUN=0 \
-DOCKER_IMAGE=asia-northeast3-docker.pkg.dev/gcp-prod-edp-hub-vpchost/ar-l2comm-python/python-bq-batch:v1 \
-./ssw/dlk/run-gke.sh \
-  20261016 20261016 20261016 180000 \
-  0 4 16 \
-  /app \
-  python main.py
-```
-
-기대 흐름:
-
-```text
-[INFO] PVC status        -> Bound
-[INFO] Waiting for Job completion: l2comm-...
-job.batch/l2comm-... condition met
-================ JOB LOG ================
-Loading 43 GCP regions into pjt-c-admin.dlk_sample.gcp_region_inventory
-Completed: pjt-c-admin.dlk_sample.gcp_region_inventory, rows=43
-=========================================
-[SUCCESS] l2comm-...
-```
-
-> 첫 실행은 Autopilot 이 Node 를 새로 띄우므로 2~5분 걸릴 수 있습니다.
-
-### 11-2b. NFS 경로 검증 (조회 샘플)
-
-Git `mnt/` 의 스크립트가 NFS 를 통해 Pod 에 전달되는지 확인합니다.
-**테이블에 행을 추가하지 않습니다.** 11-2 를 먼저 수행해야 조회할 데이터가 있습니다.
-
-```bash
-DRY_RUN=0 \
-DOCKER_IMAGE=asia-northeast3-docker.pkg.dev/gcp-prod-edp-hub-vpchost/ar-l2comm-python/python-bq-batch:v1 \
-./ssw/dlk/run-gke.sh \
-  20261016 20261016 20261016 180000 \
-  0 4 16 \
-  /mnt/l2comm/python \
-  python bq_sample.py
-```
-
-기대 로그:
-
-```text
-[INFO] BigQuery job project : gcp-prod-edp-edge-509423
-[INFO] Sample table         : pjt-c-admin.dlk_sample.gcp_region_inventory
-[INFO] Limit                : 10
-[INFO] rows=10
-africa-south1   UP      africa-south1   ...
-```
-
-> 로그가 **비어 있으면** NFS 가 올바른 저장소를 export 하고 있는지
-> 확인하십시오. `/ssw/dlk` 재지정 후 `setup-nfs-server.sh` 를 다시
-> 돌리지 않으면 이전(L2Comm02) `mnt/` 가 계속 export 됩니다.
->
-> ```bash
-> findmnt /srv/l2comm-nfs
-> ls -l /srv/l2comm-nfs/python/
-> ```
->
-> `findmnt` 의 SOURCE 가 `.../Gcp_Managed_GKE_L2Comm03/mnt` 여야 합니다.
-
-### 11-2c. Pod 접속해서 확인 (디버그)
-
-배치 Job 은 50초 만에 끝나고 삭제되므로 그 Pod 에는 접속할 수 없습니다.
-같은 환경(이미지 / KSA / NFS 마운트 / 환경변수)으로 대기하는 Pod 를 띄웁니다.
-
-```bash
-cd ~/Gcp_Managed_GKE_L2Comm03
-./ssw/dlk/debug-gke.sh
-```
-
-Pod 생성 → Ready 대기 → 쉘 접속까지 한 번에 수행합니다.
-Autopilot 이 노드를 띄우느라 2~5분 걸릴 수 있습니다.
-
-Pod 안에서 확인할 것들:
-
-```bash
-pwd && ls -l                              # /app, main.py (이미지 내부)
-ls -l /mnt/l2comm/python/                 # NFS 마운트 (Git mnt/)
-head -5 /mnt/l2comm/python/bq_sample.py   # 03 저장소 내용인지
-env | grep TARGET                         # 주입된 환경변수
-python main.py                            # 적재 배치 수동 실행
-python /mnt/l2comm/python/bq_sample.py    # 조회 샘플 수동 실행
-```
-
-빠져나온 뒤 재접속하거나 정리합니다.
-
-```bash
-./ssw/dlk/debug-gke.sh shell    # 재접속
-./ssw/dlk/debug-gke.sh delete   # 정리
-```
-
-> 방치해도 `activeDeadlineSeconds: 7200` 로 2시간 뒤 자동 종료됩니다.
-> 매니페스트는 `k8s/debug-pod.yaml` 이며, `kubectl apply -f` 로 직접 써도 됩니다.
->
-> `exec` 가 `No agent available` 로 실패하면 konnectivity 미연결입니다.
-> Owner 로 `./gcloud/11-firewall.sh` 를 실행하십시오 (§10-3).
+기대 흐름은 PV/PVC 적용 → Pod 생성 → Succeeded 대기 → 로그 출력 → 성공 Pod 삭제입니다.
+정상 로그에 `L2COMM: SUCCESS`와 `[SUCCESS]`가 표시됩니다.
+이 검사는 `SELECT` 상수 쿼리로 인증과 BigQuery 실행 권한을 확인하며, 테이블을 생성하거나 적재하지 않습니다.
+키 서비스 계정은 쿼리 실행 프로젝트 `pjt-c-admin`에 BigQuery Job User 권한이 필요합니다.
 
 ### 11-3. 다른 터미널에서 관찰
 
 ```bash
-export KUBECONFIG=$HOME/.kube/config_new-autopilot
-
-kubectl -n l2comm-batch get jobs -w
-```
-
-```bash
+export KUBECONFIG="$HOME/.kube/config_new-autopilot"
 kubectl -n l2comm-batch get pods -w
 ```
 
-Pod 상세 / 로그:
+실행 중이거나 실패하여 남은 Pod 이름을 확인한 뒤 조회합니다.
 
 ```bash
-POD=$(kubectl -n l2comm-batch get pods \
-  --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1:].metadata.name}')
-
-kubectl -n l2comm-batch describe pod "${POD}"
-kubectl -n l2comm-batch logs "${POD}" -f
+kubectl -n l2comm-batch get pods
+# 아래 POD_NAME을 실제 이름으로 바꿉니다.
+kubectl -n l2comm-batch describe pod POD_NAME
+kubectl -n l2comm-batch logs POD_NAME
 ```
 
-### 11-4. Job 보존 실행 (디버깅용)
-
-```bash
-KEEP_JOB=1 DRY_RUN=0 \
-DOCKER_IMAGE=asia-northeast3-docker.pkg.dev/gcp-prod-edp-hub-vpchost/ar-l2comm-python/python-bq-batch:v1 \
-./ssw/dlk/run-gke.sh \
-  20261016 20261016 20261016 180000 \
-  0 4 16 \
-  /mnt/l2comm/python \
-  python bq_sample.py
-
-kubectl -n l2comm-batch get jobs
-```
+현재 클라이언트는 성공 Pod를 즉시 삭제하고 실패 Pod는 남깁니다.
+`KEEP_JOB`, Job TTL, `debug-gke.sh`, Cloud Logging 자동 폴백은 지원하지 않습니다.
+`kubectl logs` 실패 시 별도로 Cloud Logging을 조회해야 합니다.
 
 ---
 
-## 12. 결과 확인
-
-### 12-1. BigQuery 적재 건수
+## 12. 결과 및 현재 설정 확인
 
 ```bash
-bq query --project_id=pjt-c-admin --use_legacy_sql=false \
-  'SELECT COUNT(*) AS row_count
-   FROM `pjt-c-admin.dlk_sample.gcp_region_inventory`'
+cd ~/Gcp_Managed_GKE_L2Comm03-01
+source ssw/dlk/client_common
+printf 'NFS_PATH=%s\nPOD_MOUNT_PATH=%s\nPV_NAME=%s\nPVC_NAME=%s\n' \
+  "$NFS_PATH" "$POD_MOUNT_PATH" "$PV_NAME" "$PVC_NAME"
+findmnt /srv/l2comm-nfs
+readlink -f /ssw/dlk
 ```
 
-기대: `row_count = 43`
+`L2COMM: SUCCESS`는 인증 검사 성공입니다. 이전 03의 `/app/main.py` 적재 검사와는 다릅니다.
+`app/main.py`는 ADC를 사용하는 별도 샘플이며 RSVP 키 인증 샘플과 혼동하지 마십시오.
+리전 수를 고정된 43건으로 검증하지 않습니다.
 
-### 12-2. 샘플 데이터
-
-```bash
-bq query --project_id=pjt-c-admin --use_legacy_sql=false \
-  'SELECT * FROM `pjt-c-admin.dlk_sample.gcp_region_inventory` LIMIT 10'
-```
-
-### 12-3. 전체 상태 일괄 점검
-
-```bash
-cd ~/Gcp_Managed_GKE_L2Comm03
-./gcloud/99-verify.sh
-```
-
-### 12-4. 정기 실행 등록 (선택)
-
-Cloud Scheduler 를 쓰지 않으므로 VM `crontab` 으로 처리합니다.
-
-```bash
-crontab -e
-```
-
-```cron
-0 9 * * * cd $HOME/Gcp_Managed_GKE_L2Comm03 && \
-  KUBECONFIG=$HOME/.kube/config_new-autopilot DRY_RUN=0 \
-  ./ssw/dlk/run-gke.sh $(date +\%Y\%m\%d) $(date +\%Y\%m\%d) \
-  $(date +\%Y\%m\%d) $(date +\%H\%M\%S) 0 4 16 \
-  /mnt/l2comm/python python bq_sample.py \
-  >> /var/log/l2comm-batch.log 2>&1
-```
-
-확인:
-
-```bash
-crontab -l
-```
+정기 실행은 수동 테스트 성공 후 동일 RSVP 래퍼와 이미지 변수를 사용해 VM crontab에 등록합니다.
 
 ---
 
@@ -1126,20 +977,20 @@ crontab -l
 | Cluster 생성 실패 | GKE Service Agent 권한 | `10-network.sh` 재실행 후 `container.hostServiceAgentUser` 확인 |
 | Build `denied: ...uploadArtifacts` | Build SA 의 AR writer 누락 | AR 이 Host 프로젝트이므로 **저장소 레벨** writer 확인 (8-1) |
 | Pod `ImagePullBackOff` | 크로스 프로젝트 AR 권한 | 저장소 레벨 reader 확인 (8-1), `AUTOPILOT_NODE_SA` 값 대조 |
-| Pod 에서 BigQuery 403 | Workload Identity 미연결 | KSA 어노테이션(10-5)과 `workloadIdentityUser`(8-5) 확인, 10-6 으로 실동작 검증 |
-| PVC `Pending` | NFS 미기동 / IP 불일치 / 방화벽 | §10-2 확인, Owner 로 `./gcloud/11-firewall.sh` 실행. `--nfs-server <VM_IP>` 로 명시 지정 |
-| Job 생성 403 | 실행 주체 권한 | `container.developer` 확인 (8-3) |
+| Pod 에서 BigQuery 403 | 키 서비스 계정의 권한 부족 | RSVP는 `.oefj` 인증 사용. 키 계정의 `pjt-c-admin` 쿼리 실행 권한 확인 (§10-6) |
+| PVC `Pending` 또는 Pod `FailedMount` | PV/PVC 매칭 또는 NFS 접근 문제 | §10-2 확인, Owner 로 `./gcloud/11-firewall.sh` 실행. `--nfs-server <VM_IP>` 로 명시 지정 |
+| Pod 생성 403 | 실행 주체 권한 | `container.developer` 확인 (8-3) |
 | `cloudbuild.connections.list denied` | 배포 주체에 `cloudbuild.connectionAdmin` 없음 | §6-2 로 점검 후 Owner 로 `00-bootstrap.sh` 재실행 |
-| 저장소 추가 시 `NOT_FOUND` / `PERMISSION_DENIED` | GitHub App 이 L2Comm03 에 접근 불가 | §7-2 에서 GitHub App Repository access 에 L2Comm03 추가 |
+| 저장소 추가 시 `NOT_FOUND` / `PERMISSION_DENIED` | GitHub App 이 L2Comm03-01 에 접근 불가 | §7-2 에서 GitHub App Repository access 에 L2Comm03-01 추가 |
 | `BigQuery error ... This feature requires allowlisting` | `bq add-iam-policy-binding --dataset` 미지원 조직 | 자동으로 dataset ACL 방식으로 폴백됨. 8-4 로 `WRITER` 부여 확인 |
-| 빌드 로그에 `REPO_FULL_NAME: ...L2Comm02` | L2Comm02 트리거를 재사용함 | `trg-l2comm03-python-image` 를 사용. 최신 소스로 `git pull` 후 `30-platform.sh` 재실행 |
+| 빌드 로그에 `REPO_FULL_NAME: ...L2Comm02` | L2Comm02 트리거를 재사용함 | `trg-l2comm03-01-python-image` 를 사용. 최신 소스로 `git pull` 후 `30-platform.sh` 재실행 |
 | `triggers create github: unrecognized arguments: <트리거명>` | 트리거 이름을 위치 인자로 전달 | 최신 소스로 `git pull`. `--name=` 플래그를 사용하도록 수정됨 |
-| `kubectl logs` 가 `No agent available` | Private cluster 의 konnectivity 미연결 (마스터→노드 방화벽 누락) | Job 자체는 정상. `client_gke` 가 Cloud Logging 으로 자동 폴백함. 근본 해결은 Owner 로 `./gcloud/11-firewall.sh` 실행 (§10-3) |
+| `kubectl logs` 가 `No agent available` | Private cluster 의 konnectivity 미연결 (마스터→노드 방화벽 누락) | Pod 실행 결과와 로그 통신은 별도 확인. 현재 클라이언트에는 자동 폴백이 없음. 근본 해결은 Owner 로 `./gcloud/11-firewall.sh` 실행 (§10-3) |
 | NFS 샘플 실행 로그가 비어 있음 | 이전 저장소(L2Comm02)의 `mnt/` 가 export 중 | `findmnt /srv/l2comm-nfs` 확인 후 `sudo bash /ssw/dlk/setup-nfs-server.sh` 재실행 |
-| 적재했는데 `row_count` 가 늘지 않음 | 조회 샘플(`bq_sample.py`)만 실행함 | 적재는 `/app` + `main.py` (11-2). NFS 샘플은 조회 전용 |
+| RSVP 실행 후 테이블이 없음 | 인증 검사만 수행함 | `bq_auth_smoke.py`는 테이블 없이 SELECT 검사만 수행 |
 | `Invalid value for field 'filter'` (firewall-rules list) | `allowed.ports` 는 서버측 필터 미지원 | 네트워크로만 필터하고 포트는 `grep 2049` 로 거름 (10-3) |
-| `git pull` 이 local changes 로 중단 | `chmod +x` 로 인한 권한 비트 변경 | `git checkout -- <파일>` 후 재시도. 반복되면 `git config core.fileMode false` |
-| `/ssw/dlk already exists and is not the expected symlink` | L2Comm02 체크아웃을 가리키는 링크가 남음 | `readlink -f /ssw/dlk` 확인 후 `REPOINT=true bash ssw/dlk/install-vm.sh` (실제 디렉터리면 백업 후 재실행) |
+| `git pull` 이 local changes 로 중단 | `chmod +x` 로 인한 권한 비트 변경 | 내용 변경 여부를 `git diff`로 확인. 권한 비트 변경만 있으면 `git config core.fileMode false` 후 재시도 |
+| `/ssw/dlk already exists and is not the expected symlink` | 이전 체크아웃을 가리키는 링크가 남음 | `readlink -f /ssw/dlk`로 확인하고 §10-1 절차로 새 링크 연결. 실제 디렉터리는 백업 후 진행 |
 | `create-auto: unrecognized arguments: --workload-pool` | Autopilot 은 해당 플래그 미지원 | 최신 소스로 `git pull`. Autopilot 은 WI 가 기본 활성화이며 pool 은 자동 설정됨 |
 | `enable_master_authorized_networks should be enabled if private endpoint is enabled` | 플래그 조합 누락 | 최신 소스로 `git pull`. `--enable-master-authorized-networks` 가 함께 지정됨 |
 | 생성 중 Cloud NAT 안내 메시지 | Private nodes 안내(오류 아님) | AR 은 Private Google Access 로 접근하므로 무시 가능. 공인 인터넷 egress 가 필요하면 Cloud NAT 구성 |
@@ -1169,13 +1020,15 @@ gcloud config list
 
 ```bash
 export KUBECONFIG=$HOME/.kube/config_new-autopilot
-kubectl -n l2comm-batch delete jobs --all
+kubectl -n l2comm-batch get pods -l app=l2comm-batch
+# 종료 상태와 이름을 확인한 뒤 개별 삭제합니다.
+# kubectl -n l2comm-batch delete pod POD_NAME
 ```
 
 전체 자원 삭제 (각 단계 확인 프롬프트):
 
 ```bash
-cd ~/Gcp_Managed_GKE_L2Comm03
+cd ~/Gcp_Managed_GKE_L2Comm03-01
 ./gcloud/90-teardown.sh
 ```
 

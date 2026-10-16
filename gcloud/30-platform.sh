@@ -54,8 +54,8 @@ bind_project "${EDGE_PROJECT}" "serviceAccount:${SA_GKE}" \
 bind_project "${EDGE_PROJECT}" "serviceAccount:${AUTOPILOT_NODE_SA}" \
   roles/container.defaultNodeServiceAccount
 
-# Job 생성 주체 권한.
-# Workflows 를 쓰지 않으므로 run-gke.sh 를 실행하는 VM / 사용자가 직접 Job 을 만듭니다.
+# Pod 생성 주체 권한.
+# Workflows 를 쓰지 않으므로 run-gke.sh 를 실행하는 VM / 사용자가 직접 Pod 을 만듭니다.
 bind_project "${EDGE_PROJECT}" "user:${ADMIN_USER}" roles/container.developer
 bind_project "${EDGE_PROJECT}" "serviceAccount:${VM_SA}" roles/container.developer
 
@@ -300,16 +300,13 @@ namespace                : ${NAMESPACE}
 ksa                      : ${KSA_NAME}
 service_account          : ${SA_GKE}   (Build / Runtime 통합)
 
-=== 배치 실행 (Workflow/Scheduler 미사용) ===
-VPC 내부 VM 에서 (적재 배치 - 이미지 내 /app/main.py):
-  DRY_RUN=0 DOCKER_IMAGE=${IMAGE_URI} \\
-  ./ssw/dlk/run-gke.sh 20261016 20261016 20261016 180000 0 4 16 \\
-    /app python main.py
-
-NFS 경로 검증 (조회 샘플 - Git mnt/ 의 bq_sample.py):
-  DRY_RUN=0 DOCKER_IMAGE=${IMAGE_URI} \\
-  ./ssw/dlk/run-gke.sh 20261016 20261016 20261016 180000 0 4 16 \\
-    /mnt/l2comm/python python bq_sample.py
+=== RSVP 배치 실행 (Workflow/Scheduler 미사용) ===
+VPC 내부 VM에서 docs/RUNBOOK.md §10~11 절차로 NFS와 인증 파일을 확인한 뒤:
+  DRY_RUN=1 DOCKER_IMAGE=${IMAGE_URI} \\
+  ./mnt/batch_gke/l2_gke_sh/rsvp/GP_L2RSVP_001_1/run-gke.sh \\
+    20261016 20261016 20261016 180000 0 4 16 \\
+    /home/jupyter/GP_L2RSVP_001_1/python python bq_auth_smoke.py
+실제 제출은 DRY_RUN=0으로 변경합니다.
 EOF
 
 log "30-platform 완료"

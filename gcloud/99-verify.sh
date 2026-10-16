@@ -31,11 +31,11 @@ echo "=== 통합 SA ==="
 gcloud iam service-accounts describe "${SA_GKE}" \
   --project="${EDGE_PROJECT}" --format="yaml(email, displayName, disabled)"
 
-echo "=== 최근 GKE Job (VPC 내부에서만 조회 가능) ==="
+echo "=== 최근 GKE Pod (VPC 내부에서만 조회 가능) ==="
 if gcloud container clusters get-credentials "${CLUSTER_NAME}" \
      --project="${EDGE_PROJECT}" --region="${REGION}" --internal-ip >/dev/null 2>&1 \
    && kubectl version >/dev/null 2>&1; then
-  kubectl -n "${NAMESPACE}" get jobs --sort-by=.metadata.creationTimestamp 2>/dev/null | tail -10
+  kubectl -n "${NAMESPACE}" get pods --sort-by=.metadata.creationTimestamp 2>/dev/null | tail -10
   echo "--- KSA 어노테이션 ---"
   kubectl -n "${NAMESPACE}" get serviceaccount "${KSA_NAME}" \
     -o jsonpath='{.metadata.annotations.iam\.gke\.io/gcp-service-account}{"\n"}' 2>/dev/null
